@@ -13,9 +13,25 @@ public class UserService {
     @Autowired
     private UserRepository repository;
     public UserResponse getUserProfile(String userId) {
+        User user=repository.findById(userId).
+                orElseThrow(()->new RuntimeException("User NOt found"));
+        UserResponse userResponse=new UserResponse();
+        userResponse.setId(user.getId());
+        userResponse.setPassword(user.getPassword());
+        userResponse.setEmail(user.getEmail());
+        userResponse.setFirstName(user.getFirstName());
+        userResponse.setLastName(user.getLastName());
+        userResponse.setCreatedAt(user.getCreatedAt());
+        userResponse.setUpdatedAt(user.getUpdatedAt());
+        return userResponse;
+
     }
 
     public UserResponse register(@Valid RegisterRequest request) {
+        if(repository.existsByEmail(request.getEmail()))
+        {
+            throw new RuntimeException("Email already exists");
+        }
         User user=new User();
         user.setEmail(request.getEmail());
         user.setPassword(request.getPassword());

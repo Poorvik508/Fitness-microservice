@@ -21,7 +21,7 @@ public class ActivityService {
                 .additionalMetrics(request.getAdditionalMetrics())
                 .build();
         Activity savedActivity=repository.save(activity);
-        return  maptoResponse(activity);
+        return  maptoResponse(savedActivity);
     }
     private ActivityResponse maptoResponse(Activity activity){
          ActivityResponse response=new ActivityResponse();

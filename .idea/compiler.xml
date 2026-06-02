@@ -19,13 +19,14 @@
         </processorPath>
         <module name="userservice" />
       </profile>
-      <profile name="Annotation profile for activityservice" enabled="true">
+      <profile name="Annotation profile for aiservice" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
         </processorPath>
+        <module name="aiservice" />
         <module name="activityservice" />
       </profile>
     </annotationProcessing>
@@ -33,6 +34,7 @@
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="activityservice" options="-parameters" />
+      <module name="aiservice" options="-parameters" />
       <module name="eureka" options="-parameters" />
       <module name="userservice" options="-parameters" />
     </option>

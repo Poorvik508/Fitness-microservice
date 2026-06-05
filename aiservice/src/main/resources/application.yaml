@@ -15,8 +15,21 @@ spring:
     mongodb:
       uri: mongodb://localhost:27017/fitnessrecommendation
       database: fitnessrecommendation
+  radditmq:
+    host: localhost
+    post: 5672
+    username: guest
+    password: guest
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+rabbitmq:
+  exchange:
+    name: fitness.exchange
+  queue:
+    name: activity.queue
+  routing:
+    key: activity.tracking

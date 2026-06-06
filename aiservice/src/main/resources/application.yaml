@@ -9,15 +9,17 @@ spring:
 
   cloud:
     compatibility-verifier:
-      enabled: false # Bypasses the Spring Boot 3.5.0 version check failure
+      enabled: false
 
   data:
     mongodb:
       uri: mongodb://localhost:27017/fitnessrecommendation
       database: fitnessrecommendation
-  radditmq:
+
+  # FIXED: Corrected 'radditmq' to 'rabbitmq' and 'post' to 'port'
+  rabbitmq:
     host: localhost
-    post: 5672
+    port: 5672
     username: guest
     password: guest
 
@@ -33,3 +35,8 @@ rabbitmq:
     name: activity.queue
   routing:
     key: activity.tracking
+
+gemini:
+  api:
+    url: "${GEMINI_API_URL}"
+    key: "${GEMINI_API_KEY}"

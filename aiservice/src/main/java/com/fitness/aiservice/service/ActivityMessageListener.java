@@ -1,10 +1,11 @@
 package com.fitness.aiservice.service;
 
 import com.fitness.aiservice.model.Activity;
+import com.fitness.aiservice.model.Recommendation;
+import com.fitness.aiservice.repository.RecommendationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,10 +13,18 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ActivityMessageListener {
 
+    private final ActivityAiService aiService;
+    private final RecommendationRepository recommendationRepository;
 
-        @RabbitListener(queues="activity.queue")
+    @RabbitListener(queues = "${rabbitmq.queue.name}")
     public void processActivity(Activity activity){
-        log.info("Recivied activity for processing:{}",activity.getId());
+        log.info("Received activity message from RabbitMQ queue. Processing tracking ID: {}", activity.getId());
+        try {
+            Recommendation recommendation = aiService.generateRecommendation(activity);
+            log.info("AI Generation successful. Full Output");
+            recommendationRepository.save(recommendation);
+        } catch (Exception e) {
+            log.error("Execution of rabbit message listener failed down the processing stream: {}", e.getMessage());
+        }
     }
-
 }

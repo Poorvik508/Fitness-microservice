@@ -13,15 +13,15 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/recommendation")
+@RequestMapping("/api/recommendations")
 public class RecommendationController {
     private final RecommendationService recommendationService;
 
-    @GetMapping("/user/{userId}")
+    @GetMapping("/users/{userId}")
     public ResponseEntity<List<Recommendation>> getUserRecommendation(@PathVariable String userId){
         return ResponseEntity.ok(recommendationService.getUserRecommendation(userId));
     }
-    @GetMapping("/user/{activityId}")
+    @GetMapping("/activitys/{activityId}")
     public ResponseEntity<Recommendation> getActivityRecommendation(@PathVariable String activityId){
         return ResponseEntity.ok(recommendationService.getActivityRecommendation(activityId));
 

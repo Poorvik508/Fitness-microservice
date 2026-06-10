@@ -1,13 +1,11 @@
 server:
-  port: 8081
+  port: 8084
 
 spring:
   application:
     name: user-service
-
   main:
     allow-bean-definition-overriding: true
-
   cloud:
     compatibility-verifier:
       enabled: false
@@ -18,11 +16,9 @@ spring:
     password: '6056'
 
   jpa:
+    open-in-view: false  # Disables the warning log you had earlier
     hibernate:
       ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 eureka:
   client:

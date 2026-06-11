@@ -15,12 +15,23 @@ spring:
     username: postgres
     password: '6056'
 
+  # MERGED BLOCK: All JPA and Hibernate properties must live under a single key
   jpa:
-    open-in-view: false  # Disables the warning log you had earlier
+    open-in-view: false
+    show-sql: true
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
 
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
+
+logging:
+  level:
+    org.hibernate.orm.results: DEBUG  # Prints the row data coming back from Postgres
+    org.hibernate.stat: DEBUG         # Tracks session metrics and query execution times

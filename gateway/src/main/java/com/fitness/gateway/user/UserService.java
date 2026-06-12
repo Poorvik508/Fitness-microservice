@@ -11,30 +11,33 @@ import reactor.core.publisher.Mono;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-// Removed @Data because a Service bean should not have getters/setters generated for state properties
 public class UserService {
 
     private final WebClient userServiceWebClient;
 
     public Mono<Boolean> validateUser(String userId) {
-        // FIXED: Stripped away Boolean.TRUE.equals and returned the Mono container straight back
+        // 🪵 ADDED LOG: Tracking validation requests leaving the Gateway
+        log.info(">>>> [Gateway Service] Sending validation request downstream for userId: {} <<<<", userId);
+
         return userServiceWebClient.get()
-                .uri("api/users/{userId}/validate", userId)
+                .uri("api/users/validate")
+                .header("X-User-ID", userId)
                 .retrieve()
                 .bodyToMono(Boolean.class)
                 .onErrorResume(WebClientResponseException.class, e -> {
-                    // FIXED: Replaced standard throw blocks with clean Mono.error pipelines
                     if (e.getStatusCode().isSameCodeAs(org.springframework.http.HttpStatus.NOT_FOUND)) {
-                        return Mono.error(new RuntimeException("User Not Found: " + userId));
+                        log.info("Downstream validation returned 404 for user {}. Mapping to false.", userId);
+                        return Mono.just(false);
                     } else if (e.getStatusCode().isSameCodeAs(org.springframework.http.HttpStatus.BAD_REQUEST)) {
-                        return Mono.error(new RuntimeException("Invalid Request: " + userId));
+                        return Mono.error(new RuntimeException("Invalid Request parameter passed: " + userId));
                     }
                     return Mono.error(new RuntimeException("Unexpected verification failure: " + e.getMessage(), e));
                 });
     }
 
     public Mono<UserResponse> registerUser(RegisterRequest registerRequest) {
-        log.info("Calling User Registration API for email: {}", registerRequest.getEmail());
+        // 🪵 ADDED LOG: Printing out the exact DTO content before serializing to JSON over the network wire
+        log.info(">>>> [Gateway Service] Preparing outbound POST payload to /register: {} <<<<", registerRequest);
 
         return userServiceWebClient.post()
                 .uri("api/users/register")
@@ -44,7 +47,6 @@ public class UserService {
                 .onErrorResume(WebClientResponseException.class, e -> {
                     HttpStatusCode status = e.getStatusCode();
 
-                    // FIXED: Replaced non-existent 'userId' reference with 'registerRequest.getEmail()'
                     if (status.isSameCodeAs(org.springframework.http.HttpStatus.BAD_REQUEST)) {
                         return Mono.error(new RuntimeException("Bad Registration Request for: " + registerRequest.getEmail()));
                     } else if (status.isSameCodeAs(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)) {

@@ -7,6 +7,7 @@ import com.nimbusds.jwt.SignedJWT;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
@@ -14,50 +15,73 @@ import reactor.core.publisher.Mono;
 
 @Slf4j
 @RequiredArgsConstructor
+@Component
 public class KeycloakUserSyncFilter implements WebFilter {
 
     private final UserService userService;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String userId = exchange.getRequest().getHeaders().getFirst("X-User-ID");
         String token = exchange.getRequest().getHeaders().getFirst("Authorization");
 
+        String keyClockIdFromToken = null;
         RegisterRequest registerRequest = null;
 
-        // FIXED: Only attempt to parse token claims if the Authorization header is actually present
         if (token != null) {
-            registerRequest = getUserDetails(token);
+            try {
+                String tokenWithoutBearer = token.replace("Bearer", "").trim();
+                SignedJWT signedJWT = SignedJWT.parse(tokenWithoutBearer);
+                JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
 
-            // FIXED: Added safety null-check to guarantee no NullPointerExceptions can fire
-            if (userId == null && registerRequest != null) {
-                userId = registerRequest.getKeyColckId();
-                log.debug("Extracted falling back user ID from Keycloak sub claim: {}", userId);
+                keyClockIdFromToken = claims.getStringClaim("sub");
+                log.info("Successfully extracted Keycloak sub ID directly from token: {}", keyClockIdFromToken);
+
+                // 🪵 ADDED LOG: Print raw claims to verify they match given_name, family_name, and email keys
+                log.info(">>>> [Gateway Filter] Raw JWT claims parsed: email={}, given_name={}, family_name={} <<<<",
+                        claims.getStringClaim("email"),
+                        claims.getStringClaim("given_name"),
+                        claims.getStringClaim("family_name"));
+
+                // Build your registration payload object
+                registerRequest = new RegisterRequest();
+                registerRequest.setEmail(claims.getStringClaim("email"));
+                registerRequest.setPassword("dummy@123");
+                registerRequest.setFirstName(claims.getStringClaim("given_name"));
+                registerRequest.setLastName(claims.getStringClaim("family_name"));
+
+                registerRequest.setKeyClockId(keyClockIdFromToken);
+
+                // 🪵 ADDED LOG: Verify the instantiated Gateway RegisterRequest DTO state right here
+                log.info(">>>> [Gateway Filter] Local RegisterRequest instance built successfully: {} <<<<", registerRequest);
+
+            } catch (Exception e) {
+                log.error("Failed to parse Keycloak JWT token parameters: {}", e.getMessage());
             }
         }
 
-        // Rule: If both pieces of identity exist, run the synchronization flow
-        if (userId != null && token != null) {
-            final String finalUserId = userId; // Required for lambda closure safety scoping
+        // Execution loop verification
+        if (keyClockIdFromToken != null && token != null) {
+            final String finalUserId = keyClockIdFromToken;
             final RegisterRequest finalRegisterRequest = registerRequest;
+
+            log.info("Forwarding validation call downstream for user: {}", finalUserId);
 
             return userService.validateUser(finalUserId)
                     .flatMap(exists -> {
                         if (!exists) {
-                            log.info("User {} not found in local system. Starting sync from token claims.", finalUserId);
+                            log.info("Keycloak User {} not found downstream. Auto-registering.", finalUserId);
                             if (finalRegisterRequest != null) {
                                 return userService.registerUser(finalRegisterRequest).then();
                             }
                         } else {
-                            log.info("User {} already exists down stream. Skipping synchronization.", finalUserId);
+                            log.info("Keycloak User {} verified. Skipping sync step.", finalUserId);
                         }
                         return Mono.empty();
                     })
-                    // Progress downstream with the mutated request tracking parameters
                     .then(Mono.defer(() -> proceedWithRequest(exchange, chain, finalUserId)));
         }
 
-        // Secure fallback: If unauthenticated or missing identity data, pass along cleanly
+        log.warn("Filter bypass: Missing token or tracking ID. Header was not attached.");
         return chain.filter(exchange);
     }
 
@@ -65,27 +89,6 @@ public class KeycloakUserSyncFilter implements WebFilter {
         ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                 .header("X-User-ID", userId)
                 .build();
-
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
-    }
-
-    private RegisterRequest getUserDetails(String token) {
-        try {
-            String tokenWithoutBearer = token.replace("Bearer", "").trim();
-            SignedJWT signedJWT = SignedJWT.parse(tokenWithoutBearer);
-            JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
-
-            RegisterRequest registerRequest = new RegisterRequest();
-            registerRequest.setEmail(claims.getStringClaim("email"));
-            registerRequest.setKeyColckId(claims.getStringClaim("sub"));
-            registerRequest.setPassword("dummy@123");
-            registerRequest.setFirstName(claims.getStringClaim("given_name"));
-            registerRequest.setLastName(claims.getStringClaim("family_name"));
-
-            return registerRequest;
-        } catch (Exception e) {
-            log.error("Failed to parse and extract claims from Keycloak JWT token: {}", e.getMessage());
-            return null;
-        }
     }
 }
